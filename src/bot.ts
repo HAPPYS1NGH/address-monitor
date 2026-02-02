@@ -5,6 +5,7 @@ import {
   loadWallets,
   saveWallets,
   isAdmin,
+  getChainPreset,
   type WalletConfig,
 } from "./config.js";
 
@@ -45,12 +46,9 @@ bot.command("add", async (ctx) => {
   const wallet: WalletConfig = {
     name,
     address,
-    rpcUrl: preset.rpcUrl,
-    symbol: preset.symbol,
-    explorerUrl: preset.explorerUrl,
+    chain: chainLower,
     threshold,
     tgChatId: chatId,
-    chainType: preset.chainType,
   };
 
   const wallets = loadWallets();
@@ -117,10 +115,12 @@ bot.command("list", async (ctx) => {
 
   const list = wallets
     .map(
-      (w, i) =>
-        `${i + 1}. *${w.name}*\n` +
-        `   \`${w.address.slice(0, 10)}...${w.address.slice(-6)}\`\n` +
-        `   Threshold: ${w.threshold} ${w.symbol}`
+      (w, i) => {
+        const preset = getChainPreset(w.chain);
+        return `${i + 1}. *${w.name}*\n` +
+          `   \`${w.address.slice(0, 10)}...${w.address.slice(-6)}\`\n` +
+          `   Chain: ${w.chain} | Threshold: ${w.threshold} ${preset?.symbol}`;
+      }
     )
     .join("\n\n");
 

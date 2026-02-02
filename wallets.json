@@ -1,1 +1,23 @@
-[]
+[
+  {
+    "name": "filpay",
+    "address": "0x9b67D6eB02f02d4996190316a2bDc041C00cD627",
+    "chain": "ethereum",
+    "threshold": 0.002,
+    "tgChatId": "5734473182"
+  },
+  {
+    "name": "filpay",
+    "address": "0x9b67D6eB02f02d4996190316a2bDc041C00cD627",
+    "chain": "filecoin",
+    "threshold": 0.002,
+    "tgChatId": "5734473182"
+  },
+  {
+    "name": "shefi",
+    "address": "0x2De96D984FcdAa58b1abB17B4bbdBa964ccB72F3",
+    "chain": "base",
+    "threshold": 0.002,
+    "tgChatId": "5734473182"
+  }
+]

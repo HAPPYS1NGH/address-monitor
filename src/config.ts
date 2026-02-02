@@ -10,12 +10,9 @@ const WALLETS_PATH = join(__dirname, "..", "wallets.json");
 export interface WalletConfig {
   name: string;
   address: string;
-  rpcUrl: string;
-  symbol: string;
-  explorerUrl: string;
+  chain: string;
   threshold: number;
   tgChatId: string;
-  chainType: "evm" | "filecoin";
 }
 
 export interface ChainPreset {
@@ -90,4 +87,8 @@ export function saveWallets(wallets: WalletConfig[]): void {
 
 export function isAdmin(userId: number): boolean {
   return ADMIN_IDS.includes(String(userId));
+}
+
+export function getChainPreset(chain: string): ChainPreset | undefined {
+  return CHAIN_PRESETS[chain.toLowerCase()];
 }

@@ -1,15 +1,14 @@
-import { loadWallets } from "./config.js";
+import { loadWallets, getChainPreset } from "./config.js";
 import { checkAllBalances } from "./checker.js";
 import { notifyAll } from "./notifier.js";
-import "./bot.js"; // Initialize bot instance
 
 async function main() {
   console.log("🔍 Starting balance check...\n");
 
   const wallets = loadWallets();
-  
+
   if (wallets.length === 0) {
-    console.log("No wallets configured. Use the bot /add command to add wallets.");
+    console.log("No wallets configured. Add wallets to wallets.json");
     return;
   }
 
@@ -18,8 +17,9 @@ async function main() {
   const results = await checkAllBalances(wallets);
 
   for (const r of results) {
+    const preset = getChainPreset(r.wallet.chain);
     const status = r.isLow ? "⚠️ LOW" : "✅ OK";
-    console.log(`${status} ${r.wallet.name}: ${r.balance.toFixed(4)} ${r.wallet.symbol}`);
+    console.log(`${status} ${r.wallet.name} (${r.wallet.chain}): ${r.balance.toFixed(4)} ${preset?.symbol}`);
   }
 
   const lowCount = results.filter((r) => r.isLow).length;

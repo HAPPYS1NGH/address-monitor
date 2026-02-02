@@ -12,12 +12,9 @@ type Env = {
 interface WalletConfig {
   name: string;
   address: string;
-  rpcUrl: string;
-  symbol: string;
-  explorerUrl: string;
+  chain: string;
   threshold: number;
   tgChatId: string;
-  chainType: "evm" | "filecoin";
 }
 
 interface ChainPreset {
@@ -157,12 +154,9 @@ app.post("/webhook", async (c) => {
     const wallet: WalletConfig = {
       name,
       address,
-      rpcUrl: preset.rpcUrl,
-      symbol: preset.symbol,
-      explorerUrl: preset.explorerUrl,
+      chain: chainLower,
       threshold,
       tgChatId: String(chatId),
-      chainType: preset.chainType,
     };
 
     const { wallets, sha } = await getWalletsFromGitHub(env);
