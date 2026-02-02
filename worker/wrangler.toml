@@ -3,7 +3,7 @@ main = "src/index.ts"
 compatibility_date = "2024-05-01"
 
 [vars]
-GITHUB_REPO = "your-username/address-monitor"
+GITHUB_REPO = "HAPPYS1NGH/address-monitor"
 WALLETS_PATH = "wallets.json"
 
 # Set these via: wrangler secret put SECRET_NAME

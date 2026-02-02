@@ -1,5 +1,6 @@
 // Run: TELEGRAM_BOT_TOKEN=xxx WORKER_URL=xxx node scripts/set-webhook.js
-
+import dotenv from "dotenv";
+dotenv.config();
 const token = process.env.TELEGRAM_BOT_TOKEN;
 const workerUrl = process.env.WORKER_URL;
 

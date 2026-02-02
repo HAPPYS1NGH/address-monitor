@@ -51,51 +51,14 @@ Monitor sponsor wallet balances across multiple chains. Get alerts via Telegram 
 
 You need these before starting:
 
-| Item | Where to get it |
-|------|-----------------|
-| Telegram Bot Token | Message [@BotFather](https://t.me/BotFather), create bot, copy token |
-| Your Telegram User ID | Message [@userinfobot](https://t.me/userinfobot) |
-| Alchemy API Key | [alchemy.com/dashboard](https://dashboard.alchemy.com/) |
-| Discord Webhook URL | Discord channel → Settings → Integrations → Webhooks |
+| Item                         | Where to get it                                                                           |
+| ---------------------------- | ----------------------------------------------------------------------------------------- |
+| Telegram Bot Token           | Message [@BotFather](https://t.me/BotFather), create bot, copy token                      |
+| Your Telegram User ID        | Message [@userinfobot](https://t.me/userinfobot)                                          |
+| Alchemy API Key              | [alchemy.com/dashboard](https://dashboard.alchemy.com/)                                   |
+| Discord Webhook URL          | Discord channel → Settings → Integrations → Webhooks                                      |
 | GitHub Personal Access Token | [github.com/settings/tokens](https://github.com/settings/tokens) → Classic → `repo` scope |
-| Cloudflare Account | [cloudflare.com](https://cloudflare.com) (free) |
-
----
-
-### Step 1: Push to GitHub
-
-```bash
-cd address-monitor
-
-# Initialize git (if not done)
-git init
-git add -A
-git commit -m "Initial commit"
-
-# Create repo and push
-gh repo create address-monitor --private --source=. --push
-
-# Or manually:
-# 1. Create repo on GitHub
-# 2. git remote add origin git@github.com:YOUR_USERNAME/address-monitor.git
-# 3. git push -u origin main
-```
-
----
-
-### Step 2: Add GitHub Secrets (for scheduled balance checks)
-
-Go to your repo → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**
-
-Add these secrets:
-
-| Secret Name | Value |
-|-------------|-------|
-| `ALCHEMY_API_KEY` | Your Alchemy API key |
-| `TELEGRAM_BOT_TOKEN` | Bot token from BotFather |
-| `DISCORD_WEBHOOK_URL` | Discord webhook URL |
-
-GitHub Actions will now run every 4 hours automatically.
+| Cloudflare Account           | [cloudflare.com](https://cloudflare.com) (free)                                           |
 
 ---
 
@@ -142,6 +105,7 @@ npx wrangler deploy
 ```
 
 You'll see output like:
+
 ```
 Published address-monitor-bot (1.0.0)
   https://address-monitor-bot.YOUR-SUBDOMAIN.workers.dev
@@ -156,7 +120,7 @@ Published address-monitor-bot (1.0.0)
 ```bash
 # Replace with your values
 TELEGRAM_BOT_TOKEN=your_bot_token \
-WORKER_URL=https://address-monitor-bot.YOUR-SUBDOMAIN.workers.dev \
+WORKER_URL=https://address-monitor-bot.YOUR-happys1ngh.workers.dev \
 node scripts/set-webhook.js
 ```
 
@@ -167,6 +131,7 @@ You should see: `{ ok: true, result: true }`
 ### Step 5: Test Everything
 
 #### Test bot commands (in Telegram):
+
 ```
 /start
 /chains
@@ -176,6 +141,7 @@ You should see: `{ ok: true, result: true }`
 ```
 
 #### Test balance checker locally:
+
 ```bash
 cd ..  # back to address-monitor root
 npm install
@@ -186,6 +152,7 @@ npm run dev
 ```
 
 #### Manually trigger GitHub Action:
+
 Go to repo → **Actions** → **Balance Monitor** → **Run workflow**
 
 ---
@@ -208,17 +175,18 @@ Wallets are stored in `wallets.json`:
 ]
 ```
 
-| Field | Description |
-|-------|-------------|
-| `name` | Display name for alerts |
-| `address` | Wallet address (0x... or f1...) |
-| `chain` | ethereum, base, arbitrum, polygon, optimism, filecoin |
-| `threshold` | Alert when balance drops below this |
-| `tgChatId` | Telegram chat/group ID to send alerts |
+| Field       | Description                                           |
+| ----------- | ----------------------------------------------------- |
+| `name`      | Display name for alerts                               |
+| `address`   | Wallet address (0x... or f1...)                       |
+| `chain`     | ethereum, base, arbitrum, polygon, optimism, filecoin |
+| `threshold` | Alert when balance drops below this                   |
+| `tgChatId`  | Telegram chat/group ID to send alerts                 |
 
 ### Adding wallets
 
 **Option 1: Bot command** (after deploying worker)
+
 ```
 /add 0x123...abc base 0.05 My Sponsor Wallet
 ```
@@ -232,22 +200,22 @@ Edit the file on GitHub or locally and push.
 
 Balance checks run automatically:
 
-| Time (UTC) | 
-|------------|
-| 00:00 |
-| 04:00 |
-| 08:00 |
-| 12:00 |
-| 16:00 |
-| 20:00 |
+| Time (UTC) |
+| ---------- |
+| 00:00      |
+| 04:00      |
+| 08:00      |
+| 12:00      |
+| 16:00      |
+| 20:00      |
 
 To change frequency, edit `.github/workflows/balance-check.yml`:
 
 ```yaml
 schedule:
-  - cron: "0 */4 * * *"  # Every 4 hours
-  - cron: "0 * * * *"    # Every hour
-  - cron: "0 0 * * *"    # Once daily at midnight
+  - cron: "0 */4 * * *" # Every 4 hours
+  - cron: "0 * * * *" # Every hour
+  - cron: "0 0 * * *" # Once daily at midnight
 ```
 
 ---
@@ -273,20 +241,20 @@ npm run build
 
 ## Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| TG bot not responding | Check webhook: `curl https://api.telegram.org/bot<TOKEN>/getWebhookInfo` |
-| "chat not found" error | Bot must be in the group, or send `/start` to bot first |
-| GitHub Action failing | Check secrets are set correctly in repo settings |
-| Worker deploy fails | Run `npx wrangler login` again |
+| Issue                  | Solution                                                                 |
+| ---------------------- | ------------------------------------------------------------------------ |
+| TG bot not responding  | Check webhook: `curl https://api.telegram.org/bot<TOKEN>/getWebhookInfo` |
+| "chat not found" error | Bot must be in the group, or send `/start` to bot first                  |
+| GitHub Action failing  | Check secrets are set correctly in repo settings                         |
+| Worker deploy fails    | Run `npx wrangler login` again                                           |
 
 ---
 
 ## Costs
 
-| Service | Cost |
-|---------|------|
-| GitHub Actions | Free (2000 mins/month) |
+| Service            | Cost                     |
+| ------------------ | ------------------------ |
+| GitHub Actions     | Free (2000 mins/month)   |
 | Cloudflare Workers | Free (100k requests/day) |
-| Alchemy | Free tier sufficient |
-| **Total** | **$0** |
+| Alchemy            | Free tier sufficient     |
+| **Total**          | **$0**                   |
