@@ -1,0 +1,13 @@
+name = "address-monitor-bot"
+main = "src/index.ts"
+compatibility_date = "2024-05-01"
+
+[vars]
+GITHUB_REPO = "your-username/address-monitor"
+WALLETS_PATH = "wallets.json"
+
+# Set these via: wrangler secret put SECRET_NAME
+# TELEGRAM_BOT_TOKEN
+# GITHUB_TOKEN
+# ADMIN_IDS
+# ALCHEMY_API_KEY

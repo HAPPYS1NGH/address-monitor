@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment
+.env
+.env.local
+.dev.vars
+
+# Build
+dist/
+.wrangler/
+
+# OS
+.DS_Store
+
+# Lock files (regenerate on install)
+package-lock.json
