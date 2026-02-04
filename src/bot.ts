@@ -53,9 +53,12 @@ bot.command("add", async (ctx) => {
 
   const wallets = loadWallets();
   
-  // Check if already exists
+  // Check if already exists (same address + chain in this group)
   const exists = wallets.some(
-    (w) => w.address.toLowerCase() === address.toLowerCase() && w.tgChatId === chatId
+    (w) =>
+      w.address.toLowerCase() === address.toLowerCase() &&
+      w.chain.toLowerCase() === chainLower &&
+      w.tgChatId === chatId
   );
   if (exists) {
     return ctx.reply("❌ This address is already being tracked in this group.");
@@ -74,27 +77,48 @@ bot.command("add", async (ctx) => {
   );
 });
 
-// /remove <address>
+// /remove <address> [chain]
 bot.command("remove", async (ctx) => {
   const userId = ctx.from?.id;
   if (!userId || !isAdmin(userId)) {
     return ctx.reply("❌ You're not authorized to manage wallets.");
   }
 
-  const address = ctx.message?.text?.split(" ")[1];
+  const args = ctx.message?.text?.split(" ").slice(1) || [];
+  const [address, chain] = args;
   if (!address) {
-    return ctx.reply("Usage: `/remove <address>`", { parse_mode: "Markdown" });
+    return ctx.reply("Usage: `/remove <address> [chain]`", { parse_mode: "Markdown" });
   }
 
   const chatId = String(ctx.chat.id);
   const wallets = loadWallets();
-  const filtered = wallets.filter(
-    (w) => !(w.address.toLowerCase() === address.toLowerCase() && w.tgChatId === chatId)
+  const addressLower = address.toLowerCase();
+  const chainLower = chain?.toLowerCase();
+  const matching = wallets.filter(
+    (w) => w.tgChatId === chatId && w.address.toLowerCase() === addressLower
   );
 
-  if (filtered.length === wallets.length) {
+  if (matching.length === 0) {
     return ctx.reply("❌ Address not found in this group.");
   }
+
+  if (!chainLower && matching.length > 1) {
+    const chains = [...new Set(matching.map((w) => w.chain))].join(", ");
+    return ctx.reply(
+      `❌ Multiple chains found for this address. Please specify one of: ${chains}\n` +
+        "Usage: `/remove <address> [chain]`",
+      { parse_mode: "Markdown" }
+    );
+  }
+
+  const filtered = wallets.filter(
+    (w) =>
+      !(
+        w.tgChatId === chatId &&
+        w.address.toLowerCase() === addressLower &&
+        (chainLower ? w.chain.toLowerCase() === chainLower : true)
+      )
+  );
 
   saveWallets(filtered);
   return ctx.reply(`✅ Removed \`${address.slice(0, 10)}...${address.slice(-6)}\``, {
@@ -142,7 +166,7 @@ bot.command(["help", "start"], async (ctx) => {
     `🤖 *Address Monitor Bot*\n\n` +
       `*Commands:*\n` +
       `/add <address> <chain> [threshold] [name]\n` +
-      `/remove <address>\n` +
+      `/remove <address> [chain]\n` +
       `/list - Show tracked wallets\n` +
       `/chains - List available chains\n\n` +
       `_Only admins can add/remove wallets._`,
@@ -152,6 +176,14 @@ bot.command(["help", "start"], async (ctx) => {
 
 export async function startBot() {
   console.log("🤖 Starting Telegram bot...");
+  // Register commands so they show in the Telegram UI menu.
+  await bot.api.setMyCommands([
+    { command: "add", description: "Add a wallet to track" },
+    { command: "remove", description: "Remove a tracked wallet" },
+    { command: "list", description: "List tracked wallets in this group" },
+    { command: "chains", description: "Show available chains" },
+    { command: "help", description: "Show help and commands" },
+  ]);
   await bot.start();
 }
 
