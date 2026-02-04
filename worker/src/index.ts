@@ -7,6 +7,7 @@ type Env = {
   WALLETS_PATH: string;
   ADMIN_IDS: string;
   ALCHEMY_API_KEY: string;
+  WALLETS_KV: KVNamespace;
 };
 
 interface WalletConfig {
@@ -131,30 +132,14 @@ async function ensureBotCommands(token: string) {
   });
 }
 
-async function getWalletsFromGitHub(env: Env): Promise<{ wallets: WalletConfig[]; sha: string }> {
-  const res = await fetch(
-    `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${env.WALLETS_PATH}`,
-    { headers: { Authorization: `Bearer ${env.GITHUB_TOKEN}`, "User-Agent": "address-monitor-bot" } }
-  );
-  const data: any = await res.json();
-  const content = atob(data.content);
-  return { wallets: JSON.parse(content), sha: data.sha };
+async function getWallets(env: Env): Promise<WalletConfig[]> {
+  const data = await env.WALLETS_KV.get("wallets");
+  if (!data) return [];
+  return JSON.parse(data);
 }
 
-async function saveWalletsToGitHub(env: Env, wallets: WalletConfig[], sha: string, message: string) {
-  await fetch(`https://api.github.com/repos/${env.GITHUB_REPO}/contents/${env.WALLETS_PATH}`, {
-    method: "PUT",
-    headers: {
-      Authorization: `Bearer ${env.GITHUB_TOKEN}`,
-      "User-Agent": "address-monitor-bot",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      message,
-      content: btoa(JSON.stringify(wallets, null, 2)),
-      sha,
-    }),
-  });
+async function saveWallets(env: Env, wallets: WalletConfig[]) {
+  await env.WALLETS_KV.put("wallets", JSON.stringify(wallets));
 }
 
 function isAdmin(userId: number, adminIds: string): boolean {
@@ -216,7 +201,7 @@ app.post("/webhook", async (c) => {
       tgChatId: String(chatId),
     };
 
-    const { wallets, sha } = await getWalletsFromGitHub(env);
+    const wallets = await getWallets(env);
 
     const exists = wallets.some(
       (w) =>
@@ -230,7 +215,7 @@ app.post("/webhook", async (c) => {
     }
 
     wallets.push(wallet);
-    await saveWalletsToGitHub(env, wallets, sha, `Add wallet: ${name}`);
+    await saveWallets(env, wallets);
 
     await reply(
       `✅ *Wallet Added*\n\n📛 ${name}\n🔗 ${chainLower}\n📍 \`${address.slice(0, 10)}...${address.slice(-6)}\`\n📉 Threshold: ${threshold} ${preset.symbol}`
@@ -251,7 +236,7 @@ app.post("/webhook", async (c) => {
       return c.text("ok");
     }
 
-    const { wallets, sha } = await getWalletsFromGitHub(env);
+    const wallets = await getWallets(env);
     const addressLower = address.toLowerCase();
     const chainLower = chain?.toLowerCase();
     const matching = wallets.filter(
@@ -281,14 +266,14 @@ app.post("/webhook", async (c) => {
         )
     );
 
-    await saveWalletsToGitHub(env, filtered, sha, `Remove wallet: ${address.slice(0, 10)}...`);
+    await saveWallets(env, filtered);
     await reply(`✅ Removed \`${address.slice(0, 10)}...${address.slice(-6)}\``);
     return c.text("ok");
   }
 
   // /list
   if (parsed?.cmd === "list") {
-    const { wallets } = await getWalletsFromGitHub(env);
+    const wallets = await getWallets(env);
     const groupWallets = wallets.filter((w) => w.tgChatId === String(chatId));
 
     if (groupWallets.length === 0) {

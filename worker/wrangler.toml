@@ -2,6 +2,10 @@ name = "address-monitor-bot"
 main = "src/index.ts"
 compatibility_date = "2024-05-01"
 
+kv_namespaces = [
+  { binding = "WALLETS_KV", id = "9ca634cbc73b4c48af9a4d974c319974", preview_id = "5380c5651bb8447d98520c2667b449c6" }
+]
+
 [vars]
 GITHUB_REPO = "HAPPYS1NGH/address-monitor"
 WALLETS_PATH = "wallets.json"
