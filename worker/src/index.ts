@@ -75,6 +75,62 @@ async function sendTelegram(token: string, method: string, body: object) {
   });
 }
 
+const COMMANDS = ["add", "remove", "list", "chains", "help", "start"] as const;
+type CommandName = (typeof COMMANDS)[number];
+
+function parseCommand(text: string): { cmd: CommandName | "unknown"; args: string[] } | null {
+  if (!text.startsWith("/")) return null;
+  const [raw, ...args] = text.trim().split(/\s+/);
+  const withoutSlash = raw.slice(1);
+  const cmdOnly = withoutSlash.split("@")[0].toLowerCase();
+  const cmd = (COMMANDS as readonly string[]).includes(cmdOnly) ? (cmdOnly as CommandName) : "unknown";
+  return { cmd, args };
+}
+
+function levenshtein(a: string, b: string): number {
+  const dp = Array.from({ length: a.length + 1 }, () => new Array(b.length + 1).fill(0));
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i;
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j;
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost);
+    }
+  }
+  return dp[a.length][b.length];
+}
+
+function suggestCommand(cmd: string): string | null {
+  let best: { name: string; score: number } | null = null;
+  for (const c of COMMANDS) {
+    const score = levenshtein(cmd, c);
+    if (!best || score < best.score) best = { name: c, score };
+  }
+  if (!best) return null;
+  return best.score <= 2 ? best.name : null;
+}
+
+async function ensureBotCommands(token: string) {
+  const commands = [
+    { command: "add", description: "Add a wallet to track" },
+    { command: "remove", description: "Remove a tracked wallet" },
+    { command: "list", description: "List tracked wallets" },
+    { command: "chains", description: "Show available chains" },
+    { command: "help", description: "Show help and commands" },
+    { command: "start", description: "Show help and commands" },
+  ];
+
+  await sendTelegram(token, "setMyCommands", { commands });
+  await sendTelegram(token, "setMyCommands", {
+    commands,
+    scope: { type: "all_group_chats" },
+  });
+  await sendTelegram(token, "setMyCommands", {
+    commands,
+    scope: { type: "all_private_chats" },
+  });
+}
+
 async function getWalletsFromGitHub(env: Env): Promise<{ wallets: WalletConfig[]; sha: string }> {
   const res = await fetch(
     `https://api.github.com/repos/${env.GITHUB_REPO}/contents/${env.WALLETS_PATH}`,
@@ -115,6 +171,7 @@ app.post("/webhook", async (c) => {
   const chatId = message.chat.id;
   const userId = message.from?.id;
   const text = message.text;
+  const parsed = parseCommand(text);
 
   const reply = (msg: string) =>
     sendTelegram(env.TELEGRAM_BOT_TOKEN, "sendMessage", {
@@ -124,14 +181,14 @@ app.post("/webhook", async (c) => {
     });
 
   // /add <address> <chain> [threshold] [name]
-  if (text.startsWith("/add")) {
+  if (parsed?.cmd === "add") {
     if (!isAdmin(userId, env.ADMIN_IDS)) {
       await reply("❌ You're not authorized.");
       return c.text("ok");
     }
 
     const chainPresets = getChainPresets(env.ALCHEMY_API_KEY);
-    const args = text.split(" ").slice(1);
+    const args = parsed.args;
     if (args.length < 2) {
       await reply(
         `Usage: \`/add <address> <chain> [threshold] [name]\`\n\nChains: ${Object.keys(chainPresets).join(", ")}`
@@ -162,7 +219,10 @@ app.post("/webhook", async (c) => {
     const { wallets, sha } = await getWalletsFromGitHub(env);
 
     const exists = wallets.some(
-      (w) => w.address.toLowerCase() === address.toLowerCase() && w.tgChatId === String(chatId)
+      (w) =>
+        w.address.toLowerCase() === address.toLowerCase() &&
+        w.chain.toLowerCase() === chainLower &&
+        w.tgChatId === String(chatId)
     );
     if (exists) {
       await reply("❌ Already tracking this address in this group.");
@@ -178,28 +238,48 @@ app.post("/webhook", async (c) => {
     return c.text("ok");
   }
 
-  // /remove <address>
-  if (text.startsWith("/remove")) {
+  // /remove <address> [chain]
+  if (parsed?.cmd === "remove") {
     if (!isAdmin(userId, env.ADMIN_IDS)) {
       await reply("❌ You're not authorized.");
       return c.text("ok");
     }
 
-    const address = text.split(" ")[1];
+    const [address, chain] = parsed.args;
     if (!address) {
-      await reply("Usage: `/remove <address>`");
+      await reply("Usage: `/remove <address> [chain]`");
       return c.text("ok");
     }
 
     const { wallets, sha } = await getWalletsFromGitHub(env);
-    const filtered = wallets.filter(
-      (w) => !(w.address.toLowerCase() === address.toLowerCase() && w.tgChatId === String(chatId))
+    const addressLower = address.toLowerCase();
+    const chainLower = chain?.toLowerCase();
+    const matching = wallets.filter(
+      (w) => w.tgChatId === String(chatId) && w.address.toLowerCase() === addressLower
     );
 
-    if (filtered.length === wallets.length) {
+    if (matching.length === 0) {
       await reply("❌ Address not found in this group.");
       return c.text("ok");
     }
+
+    if (!chainLower && matching.length > 1) {
+      const chains = [...new Set(matching.map((w) => w.chain))].join(", ");
+      await reply(
+        `❌ Multiple chains found for this address. Please specify one of: ${chains}\n` +
+          "Usage: `/remove <address> [chain]`"
+      );
+      return c.text("ok");
+    }
+
+    const filtered = wallets.filter(
+      (w) =>
+        !(
+          w.tgChatId === String(chatId) &&
+          w.address.toLowerCase() === addressLower &&
+          (chainLower ? w.chain.toLowerCase() === chainLower : true)
+        )
+    );
 
     await saveWalletsToGitHub(env, filtered, sha, `Remove wallet: ${address.slice(0, 10)}...`);
     await reply(`✅ Removed \`${address.slice(0, 10)}...${address.slice(-6)}\``);
@@ -207,7 +287,7 @@ app.post("/webhook", async (c) => {
   }
 
   // /list
-  if (text.startsWith("/list")) {
+  if (parsed?.cmd === "list") {
     const { wallets } = await getWalletsFromGitHub(env);
     const groupWallets = wallets.filter((w) => w.tgChatId === String(chatId));
 
@@ -216,8 +296,16 @@ app.post("/webhook", async (c) => {
       return c.text("ok");
     }
 
+    const chainPresets = getChainPresets(env.ALCHEMY_API_KEY);
     const list = groupWallets
-      .map((w, i) => `${i + 1}. *${w.name}*\n   \`${w.address.slice(0, 10)}...${w.address.slice(-6)}\`\n   Threshold: ${w.threshold} ${w.symbol}`)
+      .map((w, i) => {
+        const symbol = chainPresets[w.chain]?.symbol || "";
+        return (
+          `${i + 1}. *${w.name}*\n` +
+          `   \`${w.address.slice(0, 10)}...${w.address.slice(-6)}\`\n` +
+          `   Chain: ${w.chain} | Threshold: ${w.threshold} ${symbol}`
+        );
+      })
       .join("\n\n");
 
     await reply(`📋 *Tracked Wallets*\n\n${list}`);
@@ -225,7 +313,7 @@ app.post("/webhook", async (c) => {
   }
 
   // /chains
-  if (text.startsWith("/chains")) {
+  if (parsed?.cmd === "chains") {
     const chainPresets = getChainPresets(env.ALCHEMY_API_KEY);
     const chains = Object.entries(chainPresets)
       .map(([name, p]) => `• \`${name}\` (${p.symbol})`)
@@ -235,15 +323,24 @@ app.post("/webhook", async (c) => {
   }
 
   // /help or /start
-  if (text.startsWith("/help") || text.startsWith("/start")) {
+  if (parsed?.cmd === "help" || parsed?.cmd === "start") {
+    await ensureBotCommands(env.TELEGRAM_BOT_TOKEN);
     await reply(
       `🤖 *Address Monitor Bot*\n\n` +
         `/add <address> <chain> [threshold] [name]\n` +
-        `/remove <address>\n` +
+        `/remove <address> [chain]\n` +
         `/list - Show tracked wallets\n` +
         `/chains - List available chains\n\n` +
         `_Only admins can add/remove._`
     );
+    return c.text("ok");
+  }
+
+  if (parsed?.cmd === "unknown") {
+    const rawCmd = text.trim().split(/\s+/)[0].slice(1);
+    const suggestion = suggestCommand(rawCmd.toLowerCase());
+    const suggestText = suggestion ? ` Did you mean \`/${suggestion}\`?` : "";
+    await reply(`❌ Unknown command \`/${rawCmd}\`.${suggestText}\n\nUse /help to see commands.`);
     return c.text("ok");
   }
 
