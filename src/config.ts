@@ -81,6 +81,39 @@ export function loadWallets(): WalletConfig[] {
   return JSON.parse(data);
 }
 
+async function loadWalletsFromKv(): Promise<WalletConfig[] | null> {
+  const accountId = process.env.CLOUDFLARE_ACCOUNT_ID;
+  const apiToken = process.env.CLOUDFLARE_API_TOKEN;
+  const namespaceId = process.env.WALLETS_KV_NAMESPACE_ID;
+  if (!accountId || !apiToken || !namespaceId) return null;
+
+  const url =
+    `https://api.cloudflare.com/client/v4/accounts/${accountId}` +
+    `/storage/kv/namespaces/${namespaceId}/values/wallets`;
+
+  const res = await fetch(url, {
+    headers: { Authorization: `Bearer ${apiToken}` },
+  });
+
+  if (res.status === 404) {
+    return [];
+  }
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Cloudflare KV fetch failed (${res.status}): ${text}`);
+  }
+
+  const data = await res.text();
+  if (!data) return [];
+  return JSON.parse(data);
+}
+
+export async function loadWalletsForChecker(): Promise<WalletConfig[]> {
+  const kvWallets = await loadWalletsFromKv();
+  if (kvWallets !== null) return kvWallets;
+  return loadWallets();
+}
+
 export function saveWallets(wallets: WalletConfig[]): void {
   writeFileSync(WALLETS_PATH, JSON.stringify(wallets, null, 2));
 }

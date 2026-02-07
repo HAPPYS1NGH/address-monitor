@@ -1,14 +1,14 @@
-import { loadWallets, getChainPreset } from "./config.js";
+import { loadWalletsForChecker, getChainPreset } from "./config.js";
 import { checkAllBalances } from "./checker.js";
 import { notifyAll } from "./notifier.js";
 
 async function main() {
   console.log("🔍 Starting balance check...\n");
 
-  const wallets = loadWallets();
+  const wallets = await loadWalletsForChecker();
 
   if (wallets.length === 0) {
-    console.log("No wallets configured. Add wallets to wallets.json");
+    console.log("No wallets configured. Add wallets via the bot (/add).");
     return;
   }
 
